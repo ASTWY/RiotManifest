@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/3/16 16:07
+# @Update  : 2024/3/16 17:48
 # @Detail  : manifest.py
 
 import asyncio
@@ -239,9 +239,9 @@ class PatcherFile:
         """
 
         if os.path.exists(path) and os.path.getsize(path) == sum(
-            chunk.size for chunk in self.chunks
+            chunk.target_size for chunk in self.chunks
         ):
-            logger.debug(f"Skipping {self.name}, file already exists")
+            logger.info(f"跳过 {self.name}, 文件已经存在，且经过校验")
             return False
         return True
 
@@ -269,13 +269,14 @@ class PatcherFile:
         with open(output, "wb+") as f:
             for chunk in self.chunks:
                 f.write(self.chunk_cache[chunk.chunk_id])
-        logger.debug(f"下载文件 {self.name} 完成")
+        logger.info(f"下载文件 {self.name} 完成")
 
 
 class PatcherManifest:
     def __init__(
         self,
-        file: Optional[StrPath] = None,
+        file: Optional[StrPath],
+        path: StrPath,
         bundle_url: str = "https://lol.dyn.riotcdn.net/channels/public/bundles/",
         concurrency_limit: int = 50,
     ):
@@ -290,6 +291,7 @@ class PatcherManifest:
         self.flags: Dict[int, str] = {}
         self.files: Dict[str, PatcherFile] = {}
 
+        self.path = path
         self.bundle_url = bundle_url
         self.concurrency_limit = concurrency_limit
 
@@ -354,6 +356,26 @@ class PatcherManifest:
             return name_match(f) and flag_match(f)
 
         return filter(file_match, self.files.values())
+
+    async def download_files_concurrently(self, files: List[PatcherFile], concurrency_limit: int = 10):
+        """
+        并发下载多个文件, 并发数别设置太大，会被限制
+
+        :param files: 需要下载的文件列表，每个元素都是一个PatcherFile实例
+        :param concurrency_limit: 并发下载任务的数量限制，默认为10
+        """
+        # 创建一个信号量，限制并发下载任务的数量
+        sem = asyncio.Semaphore(concurrency_limit)
+
+        # 创建一个包含所有下载任务的列表
+        tasks = []
+        for file in files:
+            # 使用信号量限制并发下载任务的数量
+            async with sem:
+                tasks.append(file.download_file(path=self.path, concurrency_limit=100))
+
+        # 使用 asyncio.gather 并发运行所有下载任务
+        await asyncio.gather(*tasks)
 
     def parse_rman(self, f: BinaryIO):
         parser = BinaryParser(f)

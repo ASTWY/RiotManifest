@@ -36,13 +36,15 @@ import asyncio
 from riotmanifest.manifest import PatcherManifest
 async def main():
     bundle_url = 'https://lol.dyn.riotcdn.net/channels/public/bundles/'
-    manifest = PatcherManifest(r"https://lol.secure.dyn.riotcdn.net/channels/public/releases/CB3A1B2A17ED9AAB.manifest", bundle_url=bundle_url)
+    manifest = PatcherManifest(
+      r"https://lol.secure.dyn.riotcdn.net/channels/public/releases/CB3A1B2A17ED9AAB.manifest",
+      path=r'E:\out',
+      bundle_url=bundle_url)
     
     
     files = list(manifest.filter_files(flag='zh_CN', pattern='wad.client'))
 
-    for file in files:
-        await file.download_file(path=r"d:\out")
+    await manifest.download_files_concurrently(files, 5)
 
 
 
@@ -50,6 +52,8 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
+注意，单个文件的下载并发是50，`download_files_concurrently`方法是对多个文件进行并发下载。建议这个数不要超过10，否则有封IP的风险(实测PatcherManifest传入100，download_files_concurrently传入10，后台可查最大线程为800+，正常执行，量力而行)。
+![](https://s2.loli.net/2024/03/16/PUzxQq4sgmp5h2c.png)
 
 
 ### 维护者
