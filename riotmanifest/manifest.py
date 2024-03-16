@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/3/16 17:48
+# @Update  : 2024/3/16 18:10
 # @Detail  : manifest.py
 
 import asyncio
@@ -233,19 +233,24 @@ class PatcherFile:
 
         return data
 
-    def _shoud_download(self, path: str) -> bool:
+    def _verify_file(self, path: StrPath) -> bool:
         """
-        检查文件是否需要下载
+        检查文件是否与chunks匹配
+
+        :param path: 文件路径
+        :return: 如果文件需要下载，则返回True；否则，返回False
         """
 
         if os.path.exists(path) and os.path.getsize(path) == sum(
             chunk.target_size for chunk in self.chunks
         ):
-            logger.info(f"跳过 {self.name}, 文件已经存在，且经过校验")
-            return False
-        return True
+            logger.info(f"{self.name}，校验通过")
+            return True
+        return False
 
-    async def download_file(self, path: StrPath, concurrency_limit: Optional[int] = None):
+    async def download_file(
+        self, path: StrPath, concurrency_limit: Optional[int] = None
+    ) -> bool:
         """
         下载一个文件并将其保存到磁盘
         :param path: 保存文件的路径
@@ -253,8 +258,8 @@ class PatcherFile:
         """
         output = os.path.join(path, self.name)
 
-        if not self._shoud_download(output):
-            return
+        if self._verify_file(output):
+            return True
 
         os.makedirs(os.path.dirname(output), exist_ok=True)
 
@@ -264,12 +269,15 @@ class PatcherFile:
             )
         except (DownloadError, DecompressError) as e:
             logger.error(f"下载文件 {self.name} 时出错: {str(e)}")
-            return
+            return False
 
         with open(output, "wb+") as f:
             for chunk in self.chunks:
                 f.write(self.chunk_cache[chunk.chunk_id])
-        logger.info(f"下载文件 {self.name} 完成")
+
+        status = self._verify_file(path)
+        logger.info(f"下载文件 {self.name} 完成, 状态: {status}")
+        return status
 
 
 class PatcherManifest:
@@ -357,12 +365,15 @@ class PatcherManifest:
 
         return filter(file_match, self.files.values())
 
-    async def download_files_concurrently(self, files: List[PatcherFile], concurrency_limit: int = 10):
+    async def download_files_concurrently(
+        self, files: List[PatcherFile], concurrency_limit: int = 10
+    ) -> tuple[bool]:
         """
         并发下载多个文件, 并发数别设置太大，会被限制
 
         :param files: 需要下载的文件列表，每个元素都是一个PatcherFile实例
         :param concurrency_limit: 并发下载任务的数量限制，默认为10
+        :return: 一个元组，包含所有下载结果的布尔值
         """
         # 创建一个信号量，限制并发下载任务的数量
         sem = asyncio.Semaphore(concurrency_limit)
@@ -375,7 +386,7 @@ class PatcherManifest:
                 tasks.append(file.download_file(path=self.path, concurrency_limit=100))
 
         # 使用 asyncio.gather 并发运行所有下载任务
-        await asyncio.gather(*tasks)
+        return await asyncio.gather(*tasks)
 
     def parse_rman(self, f: BinaryIO):
         parser = BinaryParser(f)
