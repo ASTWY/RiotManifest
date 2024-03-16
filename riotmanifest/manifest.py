@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/3/14 21:47
+# @Update  : 2024/3/16 16:07
 # @Detail  : manifest.py
 
 import asyncio
@@ -245,7 +245,7 @@ class PatcherFile:
             return False
         return True
 
-    async def download_file(self, path: str, concurrency_limit: Optional[int] = None):
+    async def download_file(self, path: StrPath, concurrency_limit: Optional[int] = None):
         """
         下载一个文件并将其保存到磁盘
         :param path: 保存文件的路径
