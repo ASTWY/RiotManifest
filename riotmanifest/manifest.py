@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/3/16 18:10
+# @Update  : 2024/7/2 18:44
 # @Detail  : manifest.py
 
 import asyncio
@@ -21,7 +21,7 @@ import pyzstd
 import requests
 from loguru import logger
 
-RETRY_LIMIT = 3
+RETRY_LIMIT = 5
 
 StrPath = Union[str, "os.PathLike[str]"]
 
@@ -219,7 +219,7 @@ class PatcherFile:
                     raise DownloadError(
                         f"在 {RETRY_LIMIT} 次尝试后，下载chunk {chunk.chunk_id}失败，bundle_id为 {chunk.bundle.bundle_id}"
                     ) from e
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
 
         try:
             data = pyzstd.decompress(content)
@@ -383,7 +383,7 @@ class PatcherManifest:
         for file in files:
             # 使用信号量限制并发下载任务的数量
             async with sem:
-                tasks.append(file.download_file(path=self.path, concurrency_limit=100))
+                tasks.append(file.download_file(path=self.path, concurrency_limit=50))
 
         # 使用 asyncio.gather 并发运行所有下载任务
         return await asyncio.gather(*tasks)
@@ -601,3 +601,4 @@ class PatcherManifest:
                     value = parser.unpack(fmt)[0]
             output[name] = value
         return output
+
