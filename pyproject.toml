@@ -1,6 +1,6 @@
 [project]
 name = "riotmanifest"
-version = "1.0.3"
+version = "1.0.4"
 description = "Add your description here"
 authors = [
     { name = "Virace", email = "Virace@aliyun.com" }
