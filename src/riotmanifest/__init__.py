@@ -4,19 +4,19 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/16 15:28
-# @Update  : 2024/3/16 16:21
+# @Update  : 2024/9/3 3:50
 # @Detail  : 
 
-from .manifest import (
-    DownloadError,
-    DecompressError,
+from riotmanifest.extractor import WADExtractor
+from riotmanifest.manifest import (
     BinaryParser,
-    PatcherChunk,
+    DecompressError,
+    DownloadError,
     PatcherBundle,
+    PatcherChunk,
     PatcherFile,
     PatcherManifest,
 )
-
 
 __all__ = [
     "DownloadError",
@@ -26,4 +26,5 @@ __all__ = [
     "PatcherBundle",
     "PatcherFile",
     "PatcherManifest",
+    "WADExtractor",
 ]
