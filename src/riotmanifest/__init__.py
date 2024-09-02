@@ -4,8 +4,10 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/16 15:28
-# @Update  : 2024/9/3 3:50
+# @Update  : 2024/9/3 6:29
 # @Detail  : 
+
+from loguru import logger
 
 from riotmanifest.extractor import WADExtractor
 from riotmanifest.manifest import (
@@ -17,6 +19,8 @@ from riotmanifest.manifest import (
     PatcherFile,
     PatcherManifest,
 )
+
+logger.disable("riotmanifest")
 
 __all__ = [
     "DownloadError",
