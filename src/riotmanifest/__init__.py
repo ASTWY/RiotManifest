@@ -4,12 +4,14 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/16 15:28
-# @Update  : 2024/9/5 16:25
+# @Update  : 2024/9/5 16:32
 # @Detail  : 
 
 from loguru import logger
 
+from riotmanifest.external_manifest import ManifestDL, ResourceDL
 from riotmanifest.extractor import WADExtractor
+from riotmanifest.game import RiotGameData
 from riotmanifest.native_manifest import (
     BinaryParser,
     DecompressError,
@@ -30,5 +32,8 @@ __all__ = [
     "PatcherBundle",
     "PatcherFile",
     "PatcherManifest",
+    "ManifestDL",
+    "ResourceDL",
     "WADExtractor",
+    "RiotGameData",
 ]
