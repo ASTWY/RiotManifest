@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/5 12:02
-# @Update  : 2024/9/5 13:39
+# @Update  : 2024/9/5 16:29
 # @Detail  : RiotGameData
 
 from dataclasses import dataclass
@@ -95,11 +95,11 @@ class LCUData:
 
     def __getattr__(self, region: str) -> Optional[Configuration]:
         """
-        支持通过点号访问 LCU 数据，例如 riot_game_data.lcu.euw。
+        支持通过点号访问 LCU 数据，例如 riot_game_data.lcu.EUW。
         """
         if region in self.configurations:
             return self.configurations[region]
-        raise AttributeError(f"未找到区域 {region} 的配置")
+        raise AttributeError(f"未找到区域 {region} 的配置, {self.available_regions()}")
 
     def available_regions(self) -> List[str]:
         """
@@ -135,7 +135,7 @@ class GameData:
         """
         if region in self.releases:
             return self.releases[region]
-        raise KeyError(f"未找到区域 {region} 的数据")
+        raise KeyError(f"未找到区域 {region} 的数据, {self.available_regions()}")
 
     def available_regions(self) -> List[str]:
         """
