@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/3 13:39
-# @Update  : 2024/9/6 7:26
+# @Update  : 2024/9/6 7:33
 # @Detail  : 
 
 import os
@@ -128,7 +128,7 @@ class ManifestDL:
 
 
 class ResourceDL:
-    def __init__(self, out_dir: str, md_path: Optional[str] = None, max_retries: int = 5):
+    def __init__(self, out_dir: StrPath, md_path: Optional[StrPath] = None, max_retries: int = 5):
         """
         初始化 ResourceDL 类。
 
@@ -138,15 +138,64 @@ class ResourceDL:
         :param md_path: ManifestDownloader 的路径
         :param max_retries: 最大重试次数
         """
-        self.out_dir = out_dir
+        self.out_dir = Path(out_dir)
         self.max_retries = max_retries
         self.mdl = ManifestDL(md_path)
-        self.game = RiotGameData()
-        self.game.load_game_data()
-        self.game.load_lcu_data()
+        self.rgd = RiotGameData()
 
         self.d_game = False
         self.d_lcu = False
+
+    def _check_rgd(self):
+        """
+        检查游戏资源是否加载
+        :return:
+        """
+        if not self.rgd.lcu.available_regions():
+            self.rgd.load_game_data()
+            self.rgd.load_lcu_data()
+
+    def download_game_resources(self, game_filter: str = ""):
+        """
+        下载GAME资源
+        :param game_filter:
+        :return:
+        """
+        self._check_rgd()
+        game_data = self.rgd.latest_game()
+        logger.debug(f"LCU: {game_data.version}")
+
+        try:
+            if self.d_game:
+                self.mdl.run(
+                    game_data.url,
+                    self.out_dir / "Game",
+                    pattern=f"{game_filter}",
+                    retries=self.max_retries,
+                )
+        except Exception as e:
+            logger.error(f"下载游戏资源失败: {e}")
+
+    def download_lcu_resources(self, lcu_filter: str = ""):
+        """
+        下载LCU资源
+        :param lcu_filter:
+        :return:
+        """
+        self._check_rgd()
+        lcu_data = self.rgd.lastest_lcu()
+        logger.debug(f"GAME: {lcu_data.version}")
+
+        try:
+            if self.d_lcu:
+                self.mdl.run(
+                    lcu_data.url,
+                    self.out_dir / "LeagueClient",
+                    pattern=lcu_filter,
+                    retries=self.max_retries,
+                )
+        except Exception as e:
+            logger.error(f"下载 LCU 资源失败: {e}")
 
     def download_resources(self, game_filter: str = "", lcu_filter: str = ""):
         """
@@ -155,31 +204,5 @@ class ResourceDL:
         :param game_filter:  game正则
         :param lcu_filter: lcu正则
         """
-        game_data = self.game.latest_game()
-        lcu_data = self.game.lcu.EUW
-
-        logger.debug(f"LCU: {game_data.version}")
-        logger.debug(f"GAME: {lcu_data.version}")
-
-        try:
-            if self.d_game:
-                self.mdl.run(
-                    game_data.url,
-                    os.path.join(self.out_dir, "Game"),
-                    pattern=f"{game_filter}",
-                    retries=self.max_retries,
-                )
-        except Exception as e:
-            logger.error(f"下载游戏资源失败: {e}")
-
-        try:
-            if self.d_lcu:
-                self.mdl.run(
-                    lcu_data.url,
-                    os.path.join(self.out_dir, "LeagueClient"),
-                    pattern=lcu_filter,
-                    retries=self.max_retries,
-                )
-        except Exception as e:
-            logger.error(f"下载 LCU 资源失败: {e}")
-
+        self.download_lcu_resources(lcu_filter)
+        self.download_game_resources(game_filter)
