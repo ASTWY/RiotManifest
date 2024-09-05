@@ -4,16 +4,18 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/9/3 3:48
+# @Update  : 2024/9/4 10:26
 # @Detail  : manifest.py
 
 import asyncio
 import hashlib
 import io
+import os
 import os.path
 import re
 import struct
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Iterable, Optional, Tuple
+from typing import Dict, List, Union
 from urllib.parse import urljoin, urlparse
 
 import aiohttp
