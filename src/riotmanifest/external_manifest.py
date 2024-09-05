@@ -4,65 +4,19 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/3 13:39
-# @Update  : 2024/9/5 17:56
+# @Update  : 2024/9/6 7:26
 # @Detail  : 
 
 import os
 import platform
-import subprocess
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Optional
 
 import requests
 from loguru import logger
 
 from riotmanifest.game import RiotGameData
-
-
-@contextmanager
-def execute_command(
-    args: Union[str, List[str]], executable: Optional[str] = None, cwd: Optional[str] = None
-) -> Iterator[subprocess.Popen]:
-    """
-    执行第三方命令并提供一个上下文管理器来处理其输出。
-
-    :param args: 要执行的命令，可以是字符串或字符串列表。
-    :param executable: 可执行文件的路径。如果为 None，则使用 args 中的第一个元素。
-    :param cwd: 执行命令的工作目录。如果为 None，则使用当前目录。
-    :yield: 提供一个子进程对象以供上下文管理。
-    """
-    if isinstance(args, str):
-        # 如果 args 是字符串，则按空格分割为列表
-        args = args.split()
-
-    process = None  # 初始化 process 变量
-
-    try:
-        logger.debug(f"准备执行命令: {' '.join(args)}")
-
-        # 启动子进程，并将 stderr 重定向到 stdout
-        process = subprocess.Popen(
-            args=args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            executable=executable,
-            cwd=cwd,
-            text=True,
-            bufsize=1,  # 行缓冲
-        )
-
-        yield process
-
-    except subprocess.CalledProcessError as e:
-        logger.error(f"命令执行失败: {e}")
-    except Exception as e:
-        logger.error(f"执行命令时发生未知错误: {e}")
-    finally:
-        if process and process.stdout:
-            process.stdout.close()
-        if process:
-            process.wait()
+from riotmanifest._common import execute_command, StrPath
 
 
 class GeneralError(Exception):
@@ -70,7 +24,7 @@ class GeneralError(Exception):
 
 
 class ManifestDL:
-    def __init__(self, md_path: Optional[str] = None, use_cn_mirror: bool = False):
+    def __init__(self, md_path: Optional[StrPath] = None, use_cn_mirror: bool = False):
         """
         初始化 ManifestDL 实例。
 
@@ -86,7 +40,7 @@ class ManifestDL:
         if not self.md_path:
             raise GeneralError("ManifestDownloader 未提供或下载失败")
 
-    def _download_md(self) -> Optional[str]:
+    def _download_md(self) -> Optional[StrPath]:
         """
         下载 ManifestDownloader 程序。
 
@@ -122,7 +76,7 @@ class ManifestDL:
             return None
 
     def run(
-        self, manifest: str, output: str, threads: int = 8, pattern: str = "", exclude: str = "", retries: int = 3
+        self, manifest: str, output: StrPath, threads: int = 8, pattern: str = "", exclude: str = "", retries: int = 3
     ) -> bool:
         """
         运行 ManifestDownloader 命令，支持重试。
@@ -136,7 +90,7 @@ class ManifestDL:
         :return: 如果执行成功返回 True，否则返回 False。
         """
 
-        command = ["ManifestDownloader", manifest, "-o", output, "-t", str(threads)]
+        command = ["ManifestDownloader", manifest, "-o", str(output), "-t", str(threads)]
 
         if pattern:
             command.append("-f")
@@ -221,10 +175,11 @@ class ResourceDL:
         try:
             if self.d_lcu:
                 self.mdl.run(
-                    lcu_data.patch_url,
+                    lcu_data.url,
                     os.path.join(self.out_dir, "LeagueClient"),
                     pattern=lcu_filter,
                     retries=self.max_retries,
                 )
         except Exception as e:
             logger.error(f"下载 LCU 资源失败: {e}")
+

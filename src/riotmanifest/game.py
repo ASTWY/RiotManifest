@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/5 12:02
-# @Update  : 2024/9/5 16:29
+# @Update  : 2024/9/6 7:19
 # @Detail  : RiotGameData
 
 from dataclasses import dataclass
@@ -54,12 +54,12 @@ class Configuration:
 
     :param id: 区域 ID
     :param version: 版本号
-    :param patch_url: 补丁下载地址
+    :param url: 补丁下载地址
     """
 
     id: str
     version: str
-    patch_url: str
+    url: str
 
     @staticmethod
     def from_json(config_json: dict) -> "Configuration":
@@ -70,12 +70,13 @@ class Configuration:
         :return: Configuration 对象
         """
         version = config_json["metadata"]["theme_manifest"].split("/")[-3]
-        return Configuration(id=config_json["id"], version=version, patch_url=config_json["patch_url"])
+        return Configuration(id=config_json["id"], version=version, url=config_json["patch_url"])
 
 
 class LCUData:
     """
     LCU 数据管理类，支持通过区域访问 LCU 配置信息。
+    ['BR', 'EUNE', 'EUW', 'JP', 'KR', 'LA1', 'LA2', 'ME1', 'NA', 'OC1', 'PH2', 'RU', 'SG2', 'TH2', 'TR', 'TW2', 'VN2', 'PBE']
     """
 
     def __init__(self):
@@ -101,6 +102,11 @@ class LCUData:
             return self.configurations[region]
         raise AttributeError(f"未找到区域 {region} 的配置, {self.available_regions()}")
 
+    def __getitem__(self, region: str) -> Configuration:
+        if region in self.configurations:
+            return self.configurations[region]
+        raise AttributeError(f"未找到区域 {region} 的配置, {self.available_regions()}")
+
     def available_regions(self) -> List[str]:
         """
         返回当前可用的 LCU 区域列表。
@@ -111,6 +117,7 @@ class LCUData:
 class GameData:
     """
     GAME 数据管理类，支持通过区域访问 GAME 配置信息。
+    ["BR1", "EUN1", "EUW1", "JP1", "KR", "LA1", "LA2", "ME1", "NA1", "OC1", "PBE1", "PH2", "RU", "SG2", "TH2", "TR1", "TW2", "VN2"]
     """
 
     def __init__(self):
@@ -172,9 +179,17 @@ class RiotGameData:
             regions = ["EUW1", "PBE1"]
         self.game.load_data(self.GAME_URL_TEMPLATE, regions)
 
+    def lastest_lcu(self, region: str = "EUW") -> Optional[Configuration]:
+        """
+        获取指定区域的最新版本LCU的 Configuration。
+        :param region:
+        :return:
+        """
+        return self.lcu[region]
+
     def latest_game(self, region: str = "EUW1") -> Optional[Release]:
         """
-        获取指定区域的最新版本的 Release。
+        获取指定区域的最新版本GAME的 Release。
         """
         if region in self.game.releases:
             sorted_releases = sorted(self.game.releases[region], key=lambda r: [int(v) for v in r.version.split(".")])
@@ -192,3 +207,4 @@ class RiotGameData:
         返回当前可用的 GAME 区域列表。
         """
         return self.game.available_regions()
+
