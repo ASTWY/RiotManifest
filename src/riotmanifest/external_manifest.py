@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/3 13:39
-# @Update  : 2024/9/5 16:28
+# @Update  : 2024/9/5 17:07
 # @Detail  : 
 
 import os
@@ -167,6 +167,8 @@ class ResourceDL:
         """
         初始化 ResourceDL 类。
 
+        可以通过修改 game_d，lcu_d来控制是否下载某一项，默认全下载
+
         :param out_dir: 输出目录
         :param md_path: ManifestDownloader 的路径
         :param max_retries: 最大重试次数
@@ -178,8 +180,16 @@ class ResourceDL:
         self.game.load_game_data()
         self.game.load_lcu_data()
 
-    def download_resources(self, game_filter: str, lcu_filter: str) -> None:
-        """下载游戏和 LCU 资源。"""
+        self.game_d = True
+        self.lcu_d = True
+
+    def download_resources(self, game_filter: str = "", lcu_filter: str = ""):
+        """
+        下载游戏和 LCU 资源。
+
+        :param game_filter:  game正则
+        :param lcu_filter: lcu正则
+        """
         game_data = self.game.latest_game()
         lcu_data = self.game.lcu.EUW
 
@@ -187,7 +197,7 @@ class ResourceDL:
         logger.debug(f"GAME: {lcu_data.version}")
 
         try:
-            if game_filter:
+            if self.game_d:
                 self.mdl.run(
                     game_data.url,
                     os.path.join(self.out_dir, "Game"),
@@ -198,7 +208,7 @@ class ResourceDL:
             logger.error(f"下载游戏资源失败: {e}")
 
         try:
-            if lcu_filter:
+            if self.lcu_d:
                 self.mdl.run(
                     lcu_data.patch_url,
                     os.path.join(self.out_dir, "LeagueClient"),
