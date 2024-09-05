@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/3 13:39
-# @Update  : 2024/9/5 17:07
+# @Update  : 2024/9/5 17:56
 # @Detail  : 
 
 import os
@@ -109,6 +109,12 @@ class ManifestDL:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             logger.debug(f"下载完成：{file_path}")
+
+            # 设置可执行权限（仅限非Windows系统）
+            if platform.system() != "Windows":
+                os.chmod(file_path, 0o755)
+                logger.debug(f"设置 {file_path} 为可执行")
+
             return str(file_path)
 
         except requests.RequestException as e:
@@ -149,7 +155,12 @@ class ManifestDL:
                 ) as process:
                     for line in process.stdout:
                         line = line.strip()
-                        if any(word in line.lower() for word in ["error", "aborted", "failed", "closed", "not"]):
+
+                        # 报错，但是排除程序默认重试机制
+                        if (
+                            any(word in line.lower() for word in ["error", "aborted", "failed", "closed", "not"])
+                            and "Trying again" not in line
+                        ):
                             logger.error(f"ManifestDownloader执行失败：{line}")
                             raise GeneralError(f"ManifestDownloader执行失败: {line}")
                 logger.debug("ManifestDownloader执行完毕")
@@ -167,7 +178,7 @@ class ResourceDL:
         """
         初始化 ResourceDL 类。
 
-        可以通过修改 game_d，lcu_d来控制是否下载某一项，默认全下载
+        可以通过修改 game_d，lcu_d来控制是否下载某一项，防止误操作默认均不下载
 
         :param out_dir: 输出目录
         :param md_path: ManifestDownloader 的路径
@@ -180,8 +191,8 @@ class ResourceDL:
         self.game.load_game_data()
         self.game.load_lcu_data()
 
-        self.game_d = True
-        self.lcu_d = True
+        self.d_game = False
+        self.d_lcu = False
 
     def download_resources(self, game_filter: str = "", lcu_filter: str = ""):
         """
@@ -197,7 +208,7 @@ class ResourceDL:
         logger.debug(f"GAME: {lcu_data.version}")
 
         try:
-            if self.game_d:
+            if self.d_game:
                 self.mdl.run(
                     game_data.url,
                     os.path.join(self.out_dir, "Game"),
@@ -208,7 +219,7 @@ class ResourceDL:
             logger.error(f"下载游戏资源失败: {e}")
 
         try:
-            if self.lcu_d:
+            if self.d_lcu:
                 self.mdl.run(
                     lcu_data.patch_url,
                     os.path.join(self.out_dir, "LeagueClient"),
