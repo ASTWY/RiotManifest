@@ -18,22 +18,18 @@ riot提供的manifest文件进行解析下载
 
 对`PatcherManifest`进行修改使其支持URL manifest文件下载，细化`filter_files`方法，使其支持正则表达式过滤文件。
 
-~~对`PatcherFile`增加`download_file`方法，使其支持文件下载。并且使用`aiohttp`进行异步下载。默认并发数为50，并发数可以通过实例化`PatcherManifest`时 `concurrency_limit`参数进行设置； 也可以调用`PatcherFile`的`download_file`方法时传入`concurrency_limit`参数进行设置。~~
+对`PatcherFile`增加`download_file`方法，使其支持文件下载。并且使用`aiohttp`进行异步下载。默认并发数为50，并发数可以通过实例化`PatcherManifest`时 `concurrency_limit`参数进行设置； 也可以调用`PatcherFile`的`download_file`方法时传入`concurrency_limit`参数进行设置。
 
 ### 安装
 ```shell
 pip3 install riotmanifest
 ```
 
-poetry
-```shell
-poetry add riotmanifest
-```
-
 ### 使用
+- **异步多并发下载(不推荐)**
 ```python
 import asyncio
-from riotmanifest.manifest import PatcherManifest
+from riotmanifest import PatcherManifest
 async def main():
     bundle_url = 'https://lol.dyn.riotcdn.net/channels/public/bundles/'
     manifest = PatcherManifest(
@@ -56,28 +52,46 @@ if __name__ == '__main__':
 ![](https://s2.loli.net/2024/03/16/PUzxQq4sgmp5h2c.png)
 
 
+- **ManifestDownloader外壳**
+```python
+
+from riotmanifest.external_manifest import ResourceDL
+
+rdl = ResourceDL(r'E:\out')
+rdl.d_game = True
+rdl.download_resources('content-metadata.json')
+```
+
+直接调用开源程序[Morilli/ManifestDownloader](https://github.com/Morilli/ManifestDownloader)直接下载，具体查看函数文档
+
+自动从GitHub下载可执行文件，保存至temp目录，默认使用代理
+ 
+ 
+
+
+- WADExtractor
+
 ```python
 from riotmanifest.extractor import WADExtractor
 
-def main():
-    we = WADExtractor("DE515F568F4D9C73.manifest")
-    data = we.extract_files(
-        {
-            "DATA/FINAL/Champions/Aatrox.wad.client": [
-                "data/characters/aatrox/skins/skin0.bin",
-                "data/characters/aatrox/skins/skin1.bin",
-                "data/characters/aatrox/skins/skin2.bin",
-                "data/characters/aatrox/skins/skin3.bin",
-            ],
-            "DATA/FINAL/Champions/Ahri.wad.client": [
-                "data/characters/Ahri/skins/skin0.bin",
-                "data/characters/Ahri/skins/skin1.bin",
-                "data/characters/Ahri/skins/skin2.bin",
-                "data/characters/Ahri/skins/skin3.bin",
-            ]
-        }
-    )
-    print(len(data))
+we = WADExtractor("DE515F568F4D9C73.manifest")
+data = we.extract_files(
+    {
+        "DATA/FINAL/Champions/Aatrox.wad.client": [
+            "data/characters/aatrox/skins/skin0.bin",
+            "data/characters/aatrox/skins/skin1.bin",
+            "data/characters/aatrox/skins/skin2.bin",
+            "data/characters/aatrox/skins/skin3.bin",
+        ],
+        "DATA/FINAL/Champions/Ahri.wad.client": [
+            "data/characters/Ahri/skins/skin0.bin",
+            "data/characters/Ahri/skins/skin1.bin",
+            "data/characters/Ahri/skins/skin2.bin",
+            "data/characters/Ahri/skins/skin3.bin",
+        ]
+    }
+)
+print(len(data))
 ```
 该方法无需下载完整WAD文件，直接从manifest中计算需要解包的文件位置，直接获取，减少网络请求。
 
@@ -89,6 +103,7 @@ def main():
 
 ### 感谢
 - [@CommunityDragon](https://github.com/CommunityDragon/CDTB), **CDTB**
+- [@Morilli](https://github.com/Morilli/ManifestDownloader), **ManifestDownloader**
 
 - 以及**JetBrains**提供开发环境支持
   
