@@ -4,13 +4,13 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/16 15:28
-# @Update  : 2024/9/3 6:29
+# @Update  : 2024/9/5 16:25
 # @Detail  : 
 
 from loguru import logger
 
 from riotmanifest.extractor import WADExtractor
-from riotmanifest.manifest import (
+from riotmanifest.native_manifest import (
     BinaryParser,
     DecompressError,
     DownloadError,

@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/3/12 22:46
-# @Update  : 2024/9/4 10:26
+# @Update  : 2024/9/5 16:29
 # @Detail  : manifest.py
 
 import asyncio
@@ -618,4 +618,3 @@ class PatcherManifest:
                     value = parser.unpack(fmt)[0]
             output[name] = value
         return output
-

@@ -4,7 +4,7 @@
 # @Site    : x-item.com
 # @Software: Pycharm
 # @Create  : 2024/9/2 11:54
-# @Update  : 2024/9/3 6:30
+# @Update  : 2024/9/5 16:25
 # @Detail  : 
 
 from typing import Dict, List, Optional
@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 from league_tools.formats import WAD, WadHeaderAnalyzer
 from loguru import logger
 
-from riotmanifest.manifest import PatcherFile, PatcherManifest
+from riotmanifest.native_manifest import PatcherFile, PatcherManifest
 
 
 class WADExtractor:
