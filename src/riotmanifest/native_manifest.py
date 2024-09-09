@@ -13,9 +13,9 @@ import io
 import os
 import os.path
 import re
+import shutil
 import struct
-from typing import BinaryIO, Iterable, Optional, Tuple
-from typing import Dict, List, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urljoin, urlparse
 
 import aiohttp
@@ -23,6 +23,8 @@ import pyzstd
 import requests
 from loguru import logger
 
+global CACHE_DIR
+CACHE_DIR = None
 RETRY_LIMIT = 5
 
 StrPath = Union[str, "os.PathLike[str]"]
@@ -154,14 +156,20 @@ class PatcherFile:
         """Return a predicate function for a locale filtering parameter"""
         if langs is False:
             # assume only locales flags follow this pattern
-            return lambda f: f.flags is None or not any("_" in f and len(f) == 5 for f in f.flags)
+            return lambda f: f.flags is None or not any(
+                "_" in f and len(f) == 5 for f in f.flags
+            )
         elif langs is True:
             return lambda f: True
         else:
             lang = langs.lower()  # compare lowercased
-            return lambda f: f.flags is not None and any(f.lower() == lang for f in f.flags)
+            return lambda f: f.flags is not None and any(
+                f.lower() == lang for f in f.flags
+            )
 
-    async def _download_chunks(self, chunks: List[PatcherChunk], concurrency_limit: int):
+    async def _download_chunks(
+        self, chunks: List[PatcherChunk], concurrency_limit: int
+    ):
         """
         下载一系列的chunks并将它们保存到缓存中
 
@@ -171,7 +179,10 @@ class PatcherFile:
         # 自定义并发，防止遇到网站审计
         connector = aiohttp.TCPConnector(limit=concurrency_limit)
         async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = [self._download_chunk(session, chunk, chunk.offset, chunk.size) for chunk in chunks]
+            tasks = [
+                self._download_chunk(session, chunk, chunk.offset, chunk.size)
+                for chunk in chunks
+            ]
             await asyncio.gather(*tasks)
 
     async def _download_chunk(
@@ -190,14 +201,24 @@ class PatcherFile:
         :param size: chunk的大小
         :return: 下载的chunk的内容
         """
+        if CACHE_DIR is not None and not os.path.exists(CACHE_DIR):
+            os.makedirs(CACHE_DIR)
         async with self.lock:
+            if CACHE_DIR is not None:
+                cache_path = os.path.join(CACHE_DIR, f"{chunk.chunk_id:016X}.chunk")
+                if os.path.exists(cache_path):
+                    with open(cache_path, "rb") as f:
+                        self.chunk_cache[chunk.chunk_id] = f.read()
+                    return self.chunk_cache[chunk.chunk_id]
             if chunk.chunk_id in self.chunk_cache:
                 return self.chunk_cache[chunk.chunk_id]
 
         url = urljoin(self.manifest.bundle_url, f"{chunk.bundle.bundle_id:016X}.bundle")
         for i in range(RETRY_LIMIT):
             try:
-                async with session.get(url, headers={"Range": f"bytes={offset}-{offset + size - 1}"}) as res:
+                async with session.get(
+                    url, headers={"Range": f"bytes={offset}-{offset + size - 1}"}
+                ) as res:
                     res.raise_for_status()
                     content = await res.read()
                     if len(content) != size:
@@ -215,10 +236,16 @@ class PatcherFile:
         try:
             data = pyzstd.decompress(content)
         except pyzstd.ZstdError as e:
-            raise DecompressError(f"解压缩chunk {chunk.chunk_id}时出错，bundle_id为 {chunk.bundle.bundle_id}") from e
+            raise DecompressError(
+                f"解压缩chunk {chunk.chunk_id}时出错，bundle_id为 {chunk.bundle.bundle_id}"
+            ) from e
 
         async with self.lock:
             self.chunk_cache[chunk.chunk_id] = data
+            if CACHE_DIR is not None:
+                cache_path = os.path.join(CACHE_DIR, f"{chunk.chunk_id:016X}.chunk")
+                with open(cache_path, "wb") as f:
+                    f.write(data)
 
         return data
 
@@ -230,12 +257,16 @@ class PatcherFile:
         :return: 如果文件需要下载，则返回True；否则，返回False
         """
 
-        if os.path.exists(path) and os.path.getsize(path) == sum(chunk.target_size for chunk in self.chunks):
+        if os.path.exists(path) and os.path.getsize(path) == sum(
+            chunk.target_size for chunk in self.chunks
+        ):
             logger.info(f"{self.name}，校验通过")
             return True
         return False
 
-    async def download_file(self, path: StrPath, concurrency_limit: Optional[int] = None) -> bool:
+    async def download_file(
+        self, path: StrPath, concurrency_limit: Optional[int] = None
+    ) -> bool:
         """
         下载一个文件并将其保存到磁盘
         :param path: 保存文件的路径
@@ -249,7 +280,9 @@ class PatcherFile:
         os.makedirs(os.path.dirname(output), exist_ok=True)
 
         try:
-            await self._download_chunks(self.chunks, concurrency_limit or self.manifest.concurrency_limit)
+            await self._download_chunks(
+                self.chunks, concurrency_limit or self.manifest.concurrency_limit
+            )
         except (DownloadError, DecompressError) as e:
             logger.error(f"下载文件 {self.name} 时出错: {str(e)}")
             return False
@@ -257,6 +290,12 @@ class PatcherFile:
         with open(output, "wb+") as f:
             for chunk in self.chunks:
                 f.write(self.chunk_cache[chunk.chunk_id])
+
+        # 清空本地缓存
+        for fname in os.listdir(CACHE_DIR):
+            file_path = os.path.join(CACHE_DIR, fname)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
 
         status = self._verify_file(path)
         logger.info(f"下载文件 {self.name} 完成, 状态: {status}")
@@ -278,7 +317,9 @@ class PatcherFile:
         content = b""
         for attempt in range(RETRY_LIMIT):
             try:
-                headers = {"Range": f"bytes={chunk.offset}-{chunk.offset + chunk.size - 1}"}
+                headers = {
+                    "Range": f"bytes={chunk.offset}-{chunk.offset + chunk.size - 1}"
+                }
                 response = requests.get(url, headers=headers)
                 response.raise_for_status()
                 content = response.content
@@ -298,7 +339,9 @@ class PatcherFile:
         try:
             decompressed_data = pyzstd.decompress(content)
         except pyzstd.ZstdError as e:
-            raise DecompressError(f"解压缩chunk {chunk.chunk_id}时出错，bundle_id为 {chunk.bundle.bundle_id}") from e
+            raise DecompressError(
+                f"解压缩chunk {chunk.chunk_id}时出错，bundle_id为 {chunk.bundle.bundle_id}"
+            ) from e
 
         self.chunk_cache[chunk.chunk_id] = decompressed_data
         return decompressed_data
@@ -387,7 +430,9 @@ class PatcherManifest:
         if flag:
 
             def flag_match(f):
-                return f.flags is not None and any(flag_item in f.flags for flag_item in flag)
+                return f.flags is not None and any(
+                    flag_item in f.flags for flag_item in flag
+                )
 
         else:
 
@@ -399,7 +444,9 @@ class PatcherManifest:
 
         return filter(file_match, self.files.values())
 
-    async def download_files_concurrently(self, files: List[PatcherFile], concurrency_limit: int = 10) -> Tuple[bool]:
+    async def download_files_concurrently(
+        self, files: List[PatcherFile], concurrency_limit: int = 10
+    ) -> Tuple[bool]:
         """
         并发下载多个文件, 并发数别设置太大，会被限制
 
@@ -427,7 +474,9 @@ class PatcherManifest:
         if magic != b"RMAN":
             raise ValueError("invalid magic code")
         if (version_major, version_minor) != (2, 0):
-            raise ValueError(f"unsupported RMAN version: {version_major}.{version_minor}")
+            raise ValueError(
+                f"unsupported RMAN version: {version_major}.{version_minor}"
+            )
 
         flags, offset, length, _manifest_id, _body_length = parser.unpack("<HLLQL")
         assert flags & (1 << 9)  # other flags not handled
@@ -445,7 +494,9 @@ class PatcherManifest:
 
         # offsets to tables (convert to absolute)
         offsets_base = parser.tell()
-        offsets = list(offsets_base + 4 * i + v for i, v in enumerate(parser.unpack("<6l")))
+        offsets = list(
+            offsets_base + 4 * i + v for i, v in enumerate(parser.unpack("<6l"))
+        )
 
         parser.seek(offsets[0])
         self.bundles = list(self._parse_table(parser, self._parse_bundle))
@@ -454,12 +505,17 @@ class PatcherManifest:
         self.flags = dict(self._parse_table(parser, self._parse_flag))
 
         # build a list of chunks, indexed by ID
-        self.chunks = {chunk.chunk_id: chunk for bundle in self.bundles for chunk in bundle.chunks}
+        self.chunks = {
+            chunk.chunk_id: chunk for bundle in self.bundles for chunk in bundle.chunks
+        }
 
         parser.seek(offsets[2])
         file_entries = list(self._parse_table(parser, self._parse_file_entry))
         parser.seek(offsets[3])
-        directories = {did: (name, parent) for name, did, parent in self._parse_table(parser, self._parse_directory)}
+        directories = {
+            did: (name, parent)
+            for name, did, parent in self._parse_table(parser, self._parse_directory)
+        }
 
         # merge files and directory data
         self.files = {}
@@ -472,7 +528,9 @@ class PatcherManifest:
             else:
                 flags = None
             file_chunks = [self.chunks[chunk_id] for chunk_id in chunk_ids]
-            self.files[name] = PatcherFile(name, filesize, link, flags, file_chunks, self)
+            self.files[name] = PatcherFile(
+                name, filesize, link, flags, file_chunks, self
+            )
 
         # note: last two tables are unresolved
 
@@ -515,7 +573,9 @@ class PatcherManifest:
 
         bundle = PatcherBundle(fields["bundle_id"])
         parser.seek(fields["chunks_offset"])
-        for chunk_id, compressed_size, uncompressed_size in self._parse_table(parser, parse_chunklist):
+        for chunk_id, compressed_size, uncompressed_size in self._parse_table(
+            parser, parse_chunklist
+        ):
             bundle.add_chunk(chunk_id, compressed_size, uncompressed_size)
 
         return bundle
@@ -599,7 +659,9 @@ class PatcherManifest:
         parser.seek(fields_pos)
         parser.skip(2)  # vtable size
         parser.skip(2)  # object size
-        for _, field, offset in zip(range(nfields), fields, parser.unpack(f"<{nfields}H")):
+        for _, field, offset in zip(
+            range(nfields), fields, parser.unpack(f"<{nfields}H")
+        ):
             if field is None:
                 continue
             name, fmt = field
